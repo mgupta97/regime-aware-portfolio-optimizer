@@ -150,7 +150,7 @@ def main() -> None:
     print("-" * 100)
 
     display_df = format_summary_table(summary_df)
-    print(display_df.to_string(index=False))
+    print(display_df.to_markdown(index=False))
 
     plot_portfolio_values(results)
     save_weight_history(results)
