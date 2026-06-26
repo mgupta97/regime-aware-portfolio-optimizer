@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 from src.backtest.engine import run_dynamic_rebalanced_backtest, run_rebalanced_backtest
 from src.backtest.metrics import performance_summary
-from src.models.optimizer import calculate_min_vol_weights
+from src.models.optimizer import calculate_min_vol_weights, calculate_max_sharpe_weights
+
 
 
 PRICE_PATH = Path("data/processed/etf_prices.csv")
@@ -56,6 +57,16 @@ def minimum_volatility_weight_function(
         max_weight=0.40,
     )
 
+def maximum_sharpe_weight_function(
+    historical_returns: pd.DataFrame,
+    assets: list[str],
+) -> pd.Series:
+    return calculate_max_sharpe_weights(
+        returns=historical_returns,
+        assets=assets,
+        max_weight=0.40,
+        risk_free_rate=0.02,
+    )
 
 def plot_portfolio_values(results: list) -> None:
     FIGURE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -115,16 +126,15 @@ def format_summary_table(summary_df: pd.DataFrame) -> pd.DataFrame:
     return display_df
 
 
-def print_latest_min_vol_weights(min_vol_result) -> None:
-    latest_weights = min_vol_result.weights.iloc[-1]
+def print_latest_strategy_weights(result, title: str) -> None:
+    latest_weights = result.weights.iloc[-1]
     latest_weights = latest_weights[latest_weights > 0.01].sort_values(ascending=False)
 
-    print("\nLatest Minimum Volatility Weights")
+    print(f"\n{title}")
     print("=" * 80)
 
     display_weights = latest_weights.map(lambda x: f"{x:.2%}")
     print(display_weights.to_markdown())
-
 
 def main() -> None:
     prices = load_prices()
@@ -160,10 +170,20 @@ def main() -> None:
         min_observations=60,
     )
 
+    max_sharpe_result = run_dynamic_rebalanced_backtest(
+        returns=returns,
+        weight_function=maximum_sharpe_weight_function,
+        strategy_name="Maximum Sharpe Ratio Monthly Rebalanced",
+        lookback_days=252,
+        transaction_cost_bps=transaction_cost_bps,
+        min_observations=60,
+    )
+
     results = [
         equal_weight_result,
         sixty_forty_result,
         min_vol_result,
+        max_sharpe_result,
     ]
 
     summaries = []
@@ -188,7 +208,8 @@ def main() -> None:
     display_df = format_summary_table(summary_df)
     print(display_df.to_markdown(index=False))
 
-    print_latest_min_vol_weights(min_vol_result)
+    print_latest_strategy_weights(min_vol_result, "Latest Minimum Volatility Weights")
+    print_latest_strategy_weights(max_sharpe_result, "Latest Maximum Sharpe Weights")
 
     plot_portfolio_values(results)
     save_weight_history(results)
