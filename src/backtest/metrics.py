@@ -9,6 +9,7 @@ def calculate_cagr(portfolio_values: pd.Series) -> float:
     """
     Compound Annual Growth Rate.
     """
+
     start_value = portfolio_values.iloc[0]
     end_value = portfolio_values.iloc[-1]
 
@@ -25,14 +26,19 @@ def calculate_annualized_volatility(returns: pd.Series) -> float:
     """
     Annualized volatility from daily returns.
     """
+
     return returns.std() * np.sqrt(TRADING_DAYS)
 
 
-def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+def calculate_sharpe_ratio(
+    returns: pd.Series,
+    risk_free_rate: float = 0.0,
+) -> float:
     """
     Sharpe ratio using daily returns.
     Assumes risk_free_rate is annualized.
     """
+
     daily_rf = risk_free_rate / TRADING_DAYS
     excess_returns = returns - daily_rf
 
@@ -48,23 +54,29 @@ def calculate_max_drawdown(portfolio_values: pd.Series) -> float:
     """
     Maximum drawdown from portfolio value series.
     """
+
     running_max = portfolio_values.cummax()
     drawdown = portfolio_values / running_max - 1
+
     return drawdown.min()
 
 
 def performance_summary(
     portfolio_returns: pd.Series,
     portfolio_name: str,
+    portfolio_values: pd.Series | None = None,
     starting_value: float = 10_000,
+    turnover: pd.Series | None = None,
+    transaction_costs: pd.Series | None = None,
 ) -> dict:
     """
     Create performance summary for one portfolio strategy.
     """
 
-    portfolio_values = starting_value * (1 + portfolio_returns).cumprod()
+    if portfolio_values is None:
+        portfolio_values = starting_value * (1 + portfolio_returns).cumprod()
 
-    return {
+    summary = {
         "Strategy": portfolio_name,
         "Final Value": portfolio_values.iloc[-1],
         "CAGR": calculate_cagr(portfolio_values),
@@ -72,3 +84,12 @@ def performance_summary(
         "Sharpe Ratio": calculate_sharpe_ratio(portfolio_returns),
         "Max Drawdown": calculate_max_drawdown(portfolio_values),
     }
+
+    if turnover is not None:
+        monthly_turnover = turnover[turnover > 0]
+        summary["Average Rebalance Turnover"] = monthly_turnover.mean()
+
+    if transaction_costs is not None:
+        summary["Total Transaction Costs"] = transaction_costs.sum()
+
+    return summary
